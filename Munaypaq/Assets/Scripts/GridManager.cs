@@ -15,7 +15,7 @@ public class GridManager : MonoBehaviour
 
     private List<GameObject> allTrash = new List<GameObject>();
     private Tilemap floorTilemap;
-
+    public GameOverMenu gameOverMenu;
     public static GridManager Instance;
 
     void Awake()
@@ -23,7 +23,35 @@ public class GridManager : MonoBehaviour
         Instance = this;
         floorTilemap = GameObject.FindWithTag("Walkable").GetComponent<Tilemap>();
     }
+    void Start()
+    {
+        // Intentar iniciar la sesión, esperando ScoreManager si aún no existe
+        StartCoroutine(TryStartScoreSession());
+    }
 
+    private System.Collections.IEnumerator TryStartScoreSession()
+    {
+        // Esperar 1 frame por si ScoreManager se instancia en Awake de otro GameObject
+        yield return null;
+
+        int tries = 0;
+        while (ScoreManager.Instance == null && tries < 10)
+        {
+            tries++;
+            // esperar frame(s) para que Singleton se instancie si viene de otra escena
+            yield return null;
+        }
+
+        if (ScoreManager.Instance != null)
+        {
+            ScoreManager.Instance.StartSession();
+            Debug.Log("GridManager: ScoreManager encontrado -> StartSession() llamado.");
+        }
+        else
+        {
+            Debug.LogWarning("GridManager: ScoreManager no encontrado después de esperar. StartSession() no fue llamado.");
+        }
+    }
     public bool IsWalkable(Vector3 worldPosition)
     {
         // Convertir a posición de grid
@@ -151,7 +179,7 @@ public class GridManager : MonoBehaviour
         if (trashPercentage >= loseThreshold)
         {
             Debug.Log("¡GAME OVER! Demasiada basura!");
-            // Aquí puedes pausar el juego o mostrar pantalla de Game Over
+            gameOverMenu.ShowGameOver();
         }
     }
 

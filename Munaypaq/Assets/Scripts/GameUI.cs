@@ -104,7 +104,7 @@ public class GameUI : MonoBehaviour
         bool shouldBlink = false;
         bool playSound = false;
 
-        if (lastPercentage >= 90f)
+        if (lastPercentage >= 95f)
         {
             alertMessage = "¡CRÍTICO! ¡Ciudad perdida en segundos!";
             alertColor = criticalColor;
