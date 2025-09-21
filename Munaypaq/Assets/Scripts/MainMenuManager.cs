@@ -49,7 +49,13 @@ public class MainMenuManager : MonoBehaviour
     {
        
         SceneManager.LoadScene("HighScores");
-        
+
+    }
+    public void OnMainMenuPressed()
+    {
+
+        SceneManager.LoadScene("MainMenu");
+
     }
     public void OnQuitPressed()
     {
