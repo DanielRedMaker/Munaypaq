@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -17,10 +18,13 @@ public class NPCBase : MonoBehaviour
 
     [Header("Conversion Settings")]
     public float corruptionCheckInterval = 5f;
+    [Header("Powerup Drop")]
+    [Range(0f, 1f)] public float powerupDropChance = 0.5f; // 25% de soltar algo
+    public List<PowerupType> possiblePowerups; // asignar en inspector (ej: TrashBin,Announcement,SpeedBoost)
 
     // Probabilidades directas pedidas por el usuario:
     [Range(0f, 1f)] public float badToGoodChance = 0.5f;   // 50% si el área está limpia
-    [Range(0f, 1f)] public float goodToBadChance = 0.7f;   // 70% si el área está sucia
+    [Range(0f, 1f)] public float goodToBadChance = 0.6f;   // 70% si el área está sucia
 
     public float trashInfluenceRadius = 2f;
     public float maxCorruptionChance = 0.8f; // lo dejamos pero no es usado para la conversión simple
@@ -52,7 +56,17 @@ public class NPCBase : MonoBehaviour
         MoveToTarget();
         // si quieres tiempo acumulado para otra mecánica, lo puedes mantener aquí
     }
+    void TryDropPowerupAfterClean()
+    {
+        if (possiblePowerups == null || possiblePowerups.Count == 0) return;
+        if (Random.value > powerupDropChance) return;
 
+        // Elegir aleatorio
+        PowerupType chosen = possiblePowerups[Random.Range(0, possiblePowerups.Count)];
+
+        // Pedimos al GridManager que instancie un prefab de powerup en esta posición
+        GridManagerPowerupSpawner.Instance?.SpawnPowerupAt(transform.position, chosen);
+    }
     void MoveToTarget()
     {
         if (Vector3.Distance(transform.position, targetPosition) > 0.1f)
@@ -142,8 +156,8 @@ public class NPCBase : MonoBehaviour
                 yield return null;
             }
 
-            // Limpiar la basura
-            GridManager.Instance.CleanTrash(transform.position);
+            bool cleaned = GridManager.Instance.CleanTrash(transform.position);
+            TryDropPowerupAfterClean();
 
             // Ocultar barra de progreso
             if (progressBar != null)
@@ -222,7 +236,7 @@ public class NPCBase : MonoBehaviour
         GridManager.Instance.CreateTrash(transform.position);
     }
 
-    void BecomeGood()
+    public void BecomeGood()
     {
         Debug.Log("Un NPC malo se ha reformado y ahora es bueno.");
         isGoodNPC = true;

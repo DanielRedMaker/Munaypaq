@@ -5,7 +5,7 @@ using System.Collections.Generic;
 public class GridManager : MonoBehaviour
 {
     [Header("References")]
-    public GameObject trashPrefab;
+    public List<GameObject> trashPrefabs;
     public Transform trashParent;
 
     [Header("Game Settings")]
@@ -61,9 +61,21 @@ public class GridManager : MonoBehaviour
         TileBase tile = floorTilemap.GetTile(gridPos);
         if (tile == null) return false;
 
-        // Verificar que no haya obstáculos
+        // Verificar que no haya obstáculos físicos (ignoramos triggers como powerups)
         Collider2D obstacle = Physics2D.OverlapPoint(worldPosition);
-        return obstacle == null || obstacle.CompareTag("Walkable");
+        if (obstacle == null) return true;
+
+        // Si el collider es trigger (powerups, triggers visuales), lo ignoramos y consideramos walkable
+        if (obstacle.isTrigger) return true;
+
+        // Si el collider está marcado explícitamente como "Walkable" (p.ej. zonas con colliders), permitirlo
+        if (obstacle.CompareTag("Walkable")) return true;
+
+        // Si es un powerup y por algún motivo no es trigger, también lo permitimos (por seguridad)
+        if (obstacle.CompareTag("Powerup")) return true;
+
+        // Si llegamos aquí, hay un obstáculo sólido -> no es walkable
+        return false;
     }
 
     public Vector3 GetNearestWalkableTile(Vector3 worldPosition)
@@ -91,10 +103,11 @@ public class GridManager : MonoBehaviour
 
         return centerPos; // Fallback
     }
-
-    public void CreateTrash(Vector3 position)
+    // Nuevo: crear basura eligiendo un prefab al azar
+    public void CreateTrashRandom(Vector3 position)
     {
         if (allTrash.Count >= maxTrash) return;
+        if (trashPrefabs == null || trashPrefabs.Count == 0) return;
 
         Vector3 tileCenter = GetNearestWalkableTile(position);
 
@@ -105,14 +118,60 @@ public class GridManager : MonoBehaviour
                 return;
         }
 
-        GameObject newTrash = Instantiate(trashPrefab, tileCenter, Quaternion.identity, trashParent);
+        GameObject chosen = trashPrefabs[Random.Range(0, trashPrefabs.Count)];
+        GameObject newTrash = Instantiate(chosen, tileCenter, Quaternion.identity, trashParent);
         allTrash.Add(newTrash);
 
         CheckLoseCondition();
     }
 
-    public void CleanTrash(Vector3 position)
+    // Overload de CreateTrash para compatibilidad con código anterior
+    public void CreateTrash(Vector3 position)
     {
+        CreateTrashRandom(position);
+    }
+    // Limpia un área rectangular centrada en center (width x height en tiles)
+    public void CleanArea(Vector3 center, int widthTiles = 2, int heightTiles = 2)
+    {
+        // Obtener el centro tile
+        Vector3Int centerCell = floorTilemap.WorldToCell(center);
+
+        int halfW = widthTiles / 2;
+        int halfH = heightTiles / 2;
+
+        // Recorremos las celdas del rectángulo y destruimos basura en ellas
+        for (int dx = -halfW; dx <= halfW; dx++)
+        {
+            for (int dy = -halfH; dy <= halfH; dy++)
+            {
+                Vector3Int cell = centerCell + new Vector3Int(dx, dy, 0);
+                Vector3 cellWorld = floorTilemap.GetCellCenterWorld(cell);
+
+                // Eliminar basura cercana a esta center
+                for (int i = allTrash.Count - 1; i >= 0; i--)
+                {
+                    var t = allTrash[i];
+                    if (t == null)
+                    {
+                        allTrash.RemoveAt(i);
+                        continue;
+                    }
+
+                    if (Vector3.Distance(t.transform.position, cellWorld) < 0.7f)
+                    {
+                        Destroy(t);
+                        allTrash.RemoveAt(i);
+                    }
+                }
+            }
+        }
+
+        // Re-evaluar condición de pérdida por si cambió
+        CheckLoseCondition();
+    }
+    public bool CleanTrash(Vector3 position)
+    {
+        // Intentamos eliminar la basura más cercana al position y devolvemos true si lo hicimos
         for (int i = allTrash.Count - 1; i >= 0; i--)
         {
             if (allTrash[i] == null)
@@ -125,9 +184,14 @@ public class GridManager : MonoBehaviour
             {
                 Destroy(allTrash[i]);
                 allTrash.RemoveAt(i);
-                break;
+                // Después de eliminar una basura, reevaluar condición de pérdida
+                CheckLoseCondition();
+                return true;
             }
         }
+
+        // No se encontró basura que limpiar en la posición
+        return false;
     }
 
     public bool HasTrashAt(Vector3 position)

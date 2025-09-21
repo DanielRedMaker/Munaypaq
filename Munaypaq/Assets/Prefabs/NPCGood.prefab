@@ -102,11 +102,13 @@ MonoBehaviour:
   isGoodNPC: 1
   moveInterval: 3
   moveSpeed: 2
-  cleaningTime: 2
-  trashCreationInterval: 4
+  cleaningTime: 1.5
+  trashCreationInterval: 3
   corruptionCheckInterval: 5
+  powerupDropChance: 0.529
+  possiblePowerups: 000000000100000002000000
   badToGoodChance: 0.5
-  goodToBadChance: 0.7
+  goodToBadChance: 0.6
   trashInfluenceRadius: 2
   maxCorruptionChance: 0.8
   progressBar: {fileID: 6788921260930066168}

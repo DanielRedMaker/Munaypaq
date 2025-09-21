@@ -9,20 +9,22 @@ public class PlayerController : MonoBehaviour
     [Header("Auto Cleaning")]
     public float autoCleanTime = 1.5f;
     public GameObject cleaningIndicator; // UI o sprite que muestra que está limpiando
-
+    private Coroutine speedBoostRoutine;
+    private float normalAutoCleanTime;
     private Vector3 targetPosition;
     private bool isMoving = false;
     private bool isAutoCleaning = false;
     private float timeStationary = 0f;
     private Coroutine autoCleanCoroutine;
     public CleaningProgressBar progressBar;
+    public int pointsPerTrash = 1;
     void Start()
     {
         // Colocar en posición inicial válida
         Vector3 startPos = GridManager.Instance.GetRandomWalkablePosition();
         transform.position = startPos;
         targetPosition = startPos;
-
+        normalAutoCleanTime = autoCleanTime;
         if (cleaningIndicator)
             cleaningIndicator.SetActive(false);
     }
@@ -34,6 +36,20 @@ public class PlayerController : MonoBehaviour
         HandleAutoCleaning();
     }
 
+    public void ApplySpeedBoost(float durationSeconds, float multiplier)
+    {
+        if (speedBoostRoutine != null) StopCoroutine(speedBoostRoutine);
+        speedBoostRoutine = StartCoroutine(SpeedBoostRoutine(durationSeconds, multiplier));
+    }
+
+    private IEnumerator SpeedBoostRoutine(float duration, float multiplier)
+    {
+        autoCleanTime *= multiplier; // reduce tiempo (ej multiplier = 0.5 -> 50% tiempo)
+                                     // opcional: feedback visual (cambiar color del player, etc)
+        yield return new WaitForSeconds(duration);
+        autoCleanTime = normalAutoCleanTime;
+        speedBoostRoutine = null;
+    }
     void HandleInput()
     {
         if (isMoving) return;
@@ -160,8 +176,19 @@ public class PlayerController : MonoBehaviour
             yield return null;
         }
 
-        // Limpieza completada
-        GridManager.Instance.CleanTrash(transform.position);
+        // Intentar limpiar la basura en la posición actual
+        bool cleaned = GridManager.Instance.CleanTrash(transform.position);
+
+        if (cleaned)
+        {
+            // AÑADIR PUNTOS AL JUGADOR
+            if (ScoreManager.Instance != null)
+            {
+                ScoreManager.Instance.AddScore(pointsPerTrash);
+                Debug.Log($"PlayerController: basura limpiada, +{pointsPerTrash} pts (Total: {ScoreManager.Instance.CurrentScore})");
+            }
+        }
+
         isAutoCleaning = false;
 
         if (cleaningIndicator)
