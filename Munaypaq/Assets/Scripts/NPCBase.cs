@@ -6,8 +6,6 @@ public class NPCBase : MonoBehaviour
 {
     [Header("NPC Type")]
     public bool isGoodNPC = true;
-    public Material goodMaterial;
-    public Material badMaterial;
 
     [Header("Movement Settings")]
     public float moveInterval = 3f;
@@ -236,20 +234,9 @@ public class NPCBase : MonoBehaviour
 
     void UpdateVisualAppearance()
     {
-        if (spriteRenderer != null)
-        {
-            if (isGoodNPC && goodMaterial != null)
-            {
-                spriteRenderer.material = goodMaterial;
-            }
-            else if (!isGoodNPC && badMaterial != null)
-            {
-                spriteRenderer.material = badMaterial;
-            }
-
-            // También puedes cambiar el color
-            spriteRenderer.color = isGoodNPC ? Color.green : Color.red;
-        }
+      // También puedes cambiar el color
+       spriteRenderer.color = isGoodNPC ? Color.blue : Color.red;
+      
     }
 
     // Método público para forzar conversión (para debugging)
