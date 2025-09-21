@@ -40,7 +40,6 @@ public class NPCBase : MonoBehaviour
     void Start()
     {
         spriteRenderer = GetComponent<SpriteRenderer>();
-        UpdateVisualAppearance();
 
         // Posición inicial
         Vector3 startPos = GridManager.Instance.GetRandomWalkablePosition();
@@ -230,7 +229,6 @@ public class NPCBase : MonoBehaviour
     {
         Debug.Log("¡Un NPC bueno se ha corrompido!");
         isGoodNPC = false;
-        UpdateVisualAppearance();
 
         // Crear basura inmediatamente como acto de corrupción (mantengo tu comportamiento)
         GridManager.Instance.CreateTrash(transform.position);
@@ -240,19 +238,10 @@ public class NPCBase : MonoBehaviour
     {
         Debug.Log("Un NPC malo se ha reformado y ahora es bueno.");
         isGoodNPC = true;
-        UpdateVisualAppearance();
 
         // (Opcional) puedes limpiar la casilla al convertirse en bueno:
         // GridManager.Instance.CleanTrash(transform.position);
     }
-
-    void UpdateVisualAppearance()
-    {
-      // También puedes cambiar el color
-       spriteRenderer.color = isGoodNPC ? Color.blue : Color.red;
-      
-    }
-
     // Método público para forzar conversión (para debugging)
     [ContextMenu("Force Corruption")]
     public void ForceCorruption()
