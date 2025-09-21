@@ -19,19 +19,22 @@ public class NPCBase : MonoBehaviour
 
     [Header("Conversion Settings")]
     public float corruptionCheckInterval = 5f;
-    public float baseCorruptionChance = 0.1f;
+
+    // Probabilidades directas pedidas por el usuario:
+    [Range(0f, 1f)] public float badToGoodChance = 0.5f;   // 50% si el área está limpia
+    [Range(0f, 1f)] public float goodToBadChance = 0.7f;   // 70% si el área está sucia
+
     public float trashInfluenceRadius = 2f;
-    public float maxCorruptionChance = 0.8f;
+    public float maxCorruptionChance = 0.8f; // lo dejamos pero no es usado para la conversión simple
 
     private Vector3 targetPosition;
     private bool isMoving = false;
     private bool isPerformingAction = false;
     private SpriteRenderer spriteRenderer;
 
-    // Variables para conversión
-    private float timeInDirtyArea = 0f;
-    private float timeSinceLastCorruptionCheck = 0f;
+    // Barra de progreso (opcional)
     public CleaningProgressBar progressBar;
+
     void Start()
     {
         spriteRenderer = GetComponent<SpriteRenderer>();
@@ -43,13 +46,13 @@ public class NPCBase : MonoBehaviour
         targetPosition = startPos;
 
         StartCoroutine(NPCBehavior());
-        StartCoroutine(CorruptionSystem());
+        StartCoroutine(ConversionCheckRoutine());
     }
 
     void Update()
     {
         MoveToTarget();
-        UpdateCorruptionTimer();
+        // si quieres tiempo acumulado para otra mecánica, lo puedes mantener aquí
     }
 
     void MoveToTarget()
@@ -90,16 +93,14 @@ public class NPCBase : MonoBehaviour
         }
     }
 
-    IEnumerator CorruptionSystem()
+    // Rutina que chequea conversiones (tanto corrupción como rehabilitación)
+    IEnumerator ConversionCheckRoutine()
     {
         while (true)
         {
             yield return new WaitForSeconds(corruptionCheckInterval);
 
-            if (isGoodNPC)
-            {
-                CheckForCorruption();
-            }
+            CheckForConversion();
         }
     }
 
@@ -118,6 +119,7 @@ public class NPCBase : MonoBehaviour
             targetPosition = validPosition;
         }
     }
+
     IEnumerator TryCleanTrash()
     {
         if (GridManager.Instance.HasTrashAt(transform.position))
@@ -152,6 +154,7 @@ public class NPCBase : MonoBehaviour
             isPerformingAction = false;
         }
     }
+
     void CreateTrash()
     {
         if (!isPerformingAction)
@@ -160,23 +163,34 @@ public class NPCBase : MonoBehaviour
         }
     }
 
-    void UpdateCorruptionTimer()
+    // --- Conversion logic (nuevo) ---
+    void CheckForConversion()
     {
-        if (!isGoodNPC) return;
-
-        // Verificar si está en área sucia
-        bool inDirtyArea = IsInDirtyArea();
-
-        if (inDirtyArea)
+        if (isGoodNPC)
         {
-            timeInDirtyArea += Time.deltaTime;
+            // Si el NPC bueno está en un área sucia -> puede corromperse con probabilidad goodToBadChance (70%)
+            if (IsInDirtyArea())
+            {
+                float roll = Random.value; // 0..1
+                if (roll < goodToBadChance)
+                {
+                    BecomeEvil();
+                }
+                // si no pasa el roll, permanece bueno por ahora
+            }
         }
         else
         {
-            timeInDirtyArea = Mathf.Max(0f, timeInDirtyArea - Time.deltaTime * 0.5f); // Recuperación lenta
+            // Si el NPC malo está en un área limpia -> puede volverse bueno con probabilidad badToGoodChance (50%)
+            if (IsInCleanArea())
+            {
+                float roll = Random.value;
+                if (roll < badToGoodChance)
+                {
+                    BecomeGood();
+                }
+            }
         }
-
-        timeSinceLastCorruptionCheck += Time.deltaTime;
     }
 
     bool IsInDirtyArea()
@@ -187,42 +201,37 @@ public class NPCBase : MonoBehaviour
 
         // Verificar área alrededor
         int trashCount = GridManager.Instance.GetTrashCountInRadius(transform.position, trashInfluenceRadius);
-        return trashCount > 2; // Si hay más de 2 basuras cerca
+        return trashCount > 2; // tu lógica original: si hay más de 2 basuras cerca -> sucio
     }
 
-    void CheckForCorruption()
+    bool IsInCleanArea()
     {
-        // Calcular probabilidad de corrupción
-        float corruptionChance = baseCorruptionChance;
+        // Consideramos área limpia si no hay basura en el radio (y tampoco en la tile actual)
+        if (GridManager.Instance.HasTrashAt(transform.position))
+            return false;
 
-        // Aumentar probabilidad por tiempo en área sucia
-        float timeInfluence = timeInDirtyArea / 10f; // Cada 10 segundos aumenta la probabilidad
-        corruptionChance += timeInfluence * 0.2f;
-
-        // Aumentar por basura cercana
-        int nearbyTrash = GridManager.Instance.GetTrashCountInRadius(transform.position, trashInfluenceRadius);
-        float trashInfluence = nearbyTrash * 0.1f;
-        corruptionChance += trashInfluence;
-
-        // Limitar probabilidad máxima
-        corruptionChance = Mathf.Min(corruptionChance, maxCorruptionChance);
-
-        // Roll de corrupción
-        if (Random.Range(0f, 1f) < corruptionChance)
-        {
-            BecomeEvil();
-        }
+        int trashCount = GridManager.Instance.GetTrashCountInRadius(transform.position, trashInfluenceRadius);
+        return trashCount == 0;
     }
 
     void BecomeEvil()
     {
         Debug.Log("¡Un NPC bueno se ha corrompido!");
         isGoodNPC = false;
-        timeInDirtyArea = 0f;
         UpdateVisualAppearance();
 
-        // Crear basura inmediatamente como acto de corrupción
+        // Crear basura inmediatamente como acto de corrupción (mantengo tu comportamiento)
         GridManager.Instance.CreateTrash(transform.position);
+    }
+
+    void BecomeGood()
+    {
+        Debug.Log("Un NPC malo se ha reformado y ahora es bueno.");
+        isGoodNPC = true;
+        UpdateVisualAppearance();
+
+        // (Opcional) puedes limpiar la casilla al convertirse en bueno:
+        // GridManager.Instance.CleanTrash(transform.position);
     }
 
     void UpdateVisualAppearance()
@@ -250,6 +259,10 @@ public class NPCBase : MonoBehaviour
         if (isGoodNPC)
         {
             BecomeEvil();
+        }
+        else
+        {
+            BecomeGood();
         }
     }
 }

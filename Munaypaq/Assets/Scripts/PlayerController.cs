@@ -106,15 +106,17 @@ public class PlayerController : MonoBehaviour
             StartAutoCleaning();
         }
     }
-
     void StartAutoCleaning()
     {
         if (autoCleanCoroutine != null)
             StopCoroutine(autoCleanCoroutine);
 
+        // Mostrar la barra al iniciar
+        if (progressBar != null)
+            progressBar.ShowProgressBar();
+
         autoCleanCoroutine = StartCoroutine(AutoCleanProcess());
     }
-
     void StopAutoCleaning()
     {
         if (autoCleanCoroutine != null)
@@ -128,6 +130,9 @@ public class PlayerController : MonoBehaviour
 
         if (cleaningIndicator)
             cleaningIndicator.SetActive(false);
+
+        if (progressBar != null)
+            progressBar.HideProgressBar();
     }
 
     IEnumerator AutoCleanProcess()
@@ -148,7 +153,7 @@ public class PlayerController : MonoBehaviour
 
             cleanTimer += Time.deltaTime;
 
-            // Opcional: actualizar barra de progreso
+            // actualizar barra de progreso
             float progress = cleanTimer / autoCleanTime;
             UpdateProgress(progress);
 
@@ -162,9 +167,12 @@ public class PlayerController : MonoBehaviour
         if (cleaningIndicator)
             cleaningIndicator.SetActive(false);
 
+        // ocultar la barra al terminar
+        if (progressBar != null)
+            progressBar.HideProgressBar();
+
         autoCleanCoroutine = null;
 
-        // Pequeña pausa antes de poder limpiar otra basura
         yield return new WaitForSeconds(0.2f);
     }
 

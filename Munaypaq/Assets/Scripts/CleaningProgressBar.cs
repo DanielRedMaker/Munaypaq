@@ -18,62 +18,67 @@ public class CleaningProgressBar : MonoBehaviour
         HideProgressBar();
     }
 
+
     void CreateProgressBar()
     {
         if (progressBarPrefab != null)
         {
             progressBarInstance = Instantiate(progressBarPrefab, transform.position + offset, Quaternion.identity);
-            progressBarInstance.transform.SetParent(transform);
+            progressBarInstance.transform.SetParent(transform, worldPositionStays: true);
+            // Buscar la Image marcada como fill (primera que tenga Image y tipo Filled)
             fillImage = progressBarInstance.GetComponentInChildren<Image>();
+            if (fillImage != null && fillImage.type != Image.Type.Filled)
+                fillImage.type = Image.Type.Filled; // forzar tipo Filled en caso de error
         }
         else
         {
-            // Crear automáticamente si no hay prefab
             CreateDefaultProgressBar();
         }
     }
-
     void CreateDefaultProgressBar()
     {
-        // Canvas World Space
+        // Canvas en World Space como hijo del objeto
         GameObject canvasGO = new GameObject("ProgressCanvas");
-        canvasGO.transform.SetParent(transform);
+        canvasGO.transform.SetParent(transform, false);
         canvasGO.transform.localPosition = offset;
+        canvasGO.transform.localRotation = Quaternion.identity;
+        canvasGO.transform.localScale = Vector3.one * 0.01f; // escala pequeña para que no sea gigante en worldspace (ajusta si lo prefieres)
 
         Canvas canvas = canvasGO.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.WorldSpace;
-        canvas.sortingOrder = 10;
+        canvas.sortingOrder = 500;
 
         CanvasScaler scaler = canvasGO.AddComponent<CanvasScaler>();
-        scaler.scaleFactor = 0.01f;
+        scaler.dynamicPixelsPerUnit = 10f;
 
-        // Background
+        // Fondo
         GameObject bgGO = new GameObject("Background");
-        bgGO.transform.SetParent(canvasGO.transform);
+        bgGO.transform.SetParent(canvasGO.transform, false);
         RectTransform bgRect = bgGO.AddComponent<RectTransform>();
-        bgRect.sizeDelta = new Vector2(80, 8);
+        bgRect.sizeDelta = new Vector2(80, 10);
         bgRect.anchoredPosition = Vector2.zero;
 
         Image bgImage = bgGO.AddComponent<Image>();
         bgImage.color = Color.gray;
 
-        // Fill Image
+        // Fill (hijo del background), anclas completas para que ocupe el rect inicial
         GameObject fillGO = new GameObject("Fill");
-        fillGO.transform.SetParent(bgGO.transform);
+        fillGO.transform.SetParent(bgGO.transform, false);
         RectTransform fillRect = fillGO.AddComponent<RectTransform>();
-        fillRect.anchorMin = Vector2.zero;
-        fillRect.anchorMax = new Vector2(0, 1);
-        fillRect.anchoredPosition = Vector2.zero;
-        fillRect.sizeDelta = new Vector2(0, 0);
+        fillRect.anchorMin = new Vector2(0f, 0f);
+        fillRect.anchorMax = new Vector2(1f, 1f);
+        fillRect.offsetMin = Vector2.zero;
+        fillRect.offsetMax = Vector2.zero;
 
         fillImage = fillGO.AddComponent<Image>();
         fillImage.color = Color.green;
         fillImage.type = Image.Type.Filled;
         fillImage.fillMethod = Image.FillMethod.Horizontal;
+        fillImage.fillOrigin = 0;
+        fillImage.fillAmount = 0f;
 
         progressBarInstance = canvasGO;
     }
-
     public void ShowProgressBar()
     {
         if (progressBarInstance != null)
@@ -93,30 +98,32 @@ public class CleaningProgressBar : MonoBehaviour
             isActive = false;
         }
     }
-
     public void UpdateProgress(float progress)
     {
         if (fillImage != null)
         {
-            fillImage.fillAmount = progress;
+            fillImage.fillAmount = Mathf.Clamp01(progress);
+            // Si la barra no está activa, forzamos activarla para evitar casos donde UpdateProgress se llame sin Show
+            if (!isActive && progress > 0f)
+            {
+                ShowProgressBar();
+            }
         }
     }
 
     void LateUpdate()
     {
-        // Mantener posición relativa
-        if (isActive && progressBarInstance != null)
-        {
-            Vector3 worldPos = transform.position + offset;
-            progressBarInstance.transform.position = worldPos;
+        if (progressBarInstance == null) return;
 
-            // Opcional: Hacer que mire a la cámara
-            Camera mainCamera = Camera.main;
-            if (mainCamera != null)
-            {
-                progressBarInstance.transform.LookAt(progressBarInstance.transform.position + mainCamera.transform.rotation * Vector3.forward,
-                                                   mainCamera.transform.rotation * Vector3.up);
-            }
+        // Mantener posicion relativa aunque esté inactivo (por si se activa luego)
+        Vector3 worldPos = transform.position + offset;
+        progressBarInstance.transform.position = worldPos;
+
+        // Mirar a cámara (opcional)
+        Camera mainCamera = Camera.main;
+        if (mainCamera != null)
+        {
+            progressBarInstance.transform.rotation = Quaternion.LookRotation(progressBarInstance.transform.position - mainCamera.transform.position);
         }
     }
 }
