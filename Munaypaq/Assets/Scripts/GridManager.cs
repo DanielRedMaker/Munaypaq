@@ -102,6 +102,31 @@ public class GridManager : MonoBehaviour
         }
     }
 
+    public bool HasTrashAt(Vector3 position)
+    {
+        foreach (GameObject trash in allTrash)
+        {
+            if (trash != null && Vector3.Distance(trash.transform.position, position) < 0.7f)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public int GetTrashCountInRadius(Vector3 position, float radius)
+    {
+        int count = 0;
+        foreach (GameObject trash in allTrash)
+        {
+            if (trash != null && Vector3.Distance(trash.transform.position, position) <= radius)
+            {
+                count++;
+            }
+        }
+        return count;
+    }
+
     public Vector3 GetRandomWalkablePosition()
     {
         BoundsInt bounds = floorTilemap.cellBounds;
@@ -130,12 +155,43 @@ public class GridManager : MonoBehaviour
         }
     }
 
+    // Método para obtener estadísticas del juego
+    public void GetGameStats(out int trashCount, out int maxTrashCount, out float percentage)
+    {
+        // Limpiar nulls primero
+        allTrash.RemoveAll(item => item == null);
+
+        trashCount = allTrash.Count;
+        maxTrashCount = maxTrash;
+        percentage = (float)trashCount / maxTrash * 100f;
+    }
+
     void Update()
     {
-        // UI Debug
+        // UI Debug mejorada
         if (Input.GetKeyDown(KeyCode.Tab))
         {
-            Debug.Log($"Basura: {allTrash.Count}/{maxTrash} ({(float)allTrash.Count / maxTrash * 100:F1}%)");
+            GetGameStats(out int count, out int max, out float percentage);
+            Debug.Log($"Basura: {count}/{max} ({percentage:F1}%)");
+
+            // Contar NPCs buenos vs malos
+            NPCBase[] npcs = FindObjectsOfType<NPCBase>();
+            int goodNPCs = 0, badNPCs = 0;
+
+            foreach (NPCBase npc in npcs)
+            {
+                if (npc.isGoodNPC) goodNPCs++;
+                else badNPCs++;
+            }
+
+            Debug.Log($"NPCs: {goodNPCs} buenos, {badNPCs} malos");
         }
+    }
+
+    public int GetEstimatedWalkableTiles()
+    {
+        BoundsInt bounds = floorTilemap.cellBounds;
+        int totalTiles = bounds.size.x * bounds.size.y;
+        return Mathf.RoundToInt(totalTiles * 0.7f); // 70% estimado como caminable
     }
 }
